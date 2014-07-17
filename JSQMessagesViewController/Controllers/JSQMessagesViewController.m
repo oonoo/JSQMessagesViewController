@@ -296,11 +296,11 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 {
     self.showTypingIndicator = NO;
     
-    [self.collectionView reloadData];
+//    [self.collectionView reloadData];
     
-    if (self.automaticallyScrollsToMostRecentMessage) {
-        [self scrollToBottomAnimated:YES];
-    }
+//    if (self.automaticallyScrollsToMostRecentMessage) {
+//        [self scrollToBottomAnimated:YES];
+//    }
 }
 
 - (void)scrollToBottomAnimated:(BOOL)animated
