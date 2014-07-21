@@ -47,8 +47,7 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 
 @interface JSQMessagesViewController () <JSQMessagesInputToolbarDelegate,
                                          JSQMessagesCollectionViewCellDelegate,
-                                         JSQMessagesKeyboardControllerDelegate,
-                                         UITextViewDelegate>
+                                         JSQMessagesKeyboardControllerDelegate>
 
 @property (weak, nonatomic) IBOutlet JSQMessagesCollectionView *collectionView;
 @property (weak, nonatomic) IBOutlet JSQMessagesInputToolbar *inputToolbar;
@@ -56,9 +55,13 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 @property (weak, nonatomic) IBOutlet NSLayoutConstraint *toolbarHeightConstraint;
 @property (weak, nonatomic) IBOutlet NSLayoutConstraint *toolbarBottomLayoutGuide;
 
+@property (weak, nonatomic) UIView *snapshotView;
+
 @property (strong, nonatomic) JSQMessagesKeyboardController *keyboardController;
 
 @property (assign, nonatomic) CGFloat statusBarChangeInHeight;
+
+@property (assign, nonatomic) BOOL jsq_isObserving;
 
 - (void)jsq_configureMessagesViewController;
 
@@ -111,6 +114,8 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 - (void)jsq_configureMessagesViewController
 {
     self.view.backgroundColor = [UIColor whiteColor];
+    
+    self.jsq_isObserving = NO;
     
     self.toolbarHeightConstraint.constant = kJSQMessagesInputToolbarHeightDefault;
     
@@ -173,7 +178,6 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
     _showTypingIndicator = showTypingIndicator;
     
     [self.collectionView.collectionViewLayout invalidateLayoutWithContext:[JSQMessagesCollectionViewFlowLayoutInvalidationContext context]];
-    [self scrollToBottomAnimated:YES];
 }
 
 - (void)setShowLoadEarlierMessagesHeader:(BOOL)showLoadEarlierMessagesHeader
@@ -203,7 +207,7 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 {
     [super viewWillAppear:animated];
     [self.view layoutIfNeeded];
-    [self.collectionView.collectionViewLayout invalidateLayoutWithContext:[JSQMessagesCollectionViewFlowLayoutInvalidationContext context]];
+    [self.collectionView.collectionViewLayout invalidateLayout];
     
     if (self.automaticallyScrollsToMostRecentMessage) {
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -222,7 +226,9 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
     [self jsq_addActionToInteractivePopGestureRecognizer:YES];
     [self.keyboardController beginListeningForKeyboard];
     
-    self.collectionView.collectionViewLayout.springinessEnabled = YES;
+    if (self.snapshotView) {
+        [self.snapshotView removeFromSuperview];
+    }
 }
 
 - (void)viewWillDisappear:(BOOL)animated
@@ -548,6 +554,10 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 
 - (void)textViewDidBeginEditing:(UITextView *)textView
 {
+    if (textView != self.inputToolbar.contentView.textView) {
+        return;
+    }
+    
     [textView becomeFirstResponder];
     
     if (self.automaticallyScrollsToMostRecentMessage) {
@@ -557,11 +567,19 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 
 - (void)textViewDidChange:(UITextView *)textView
 {
+    if (textView != self.inputToolbar.contentView.textView) {
+        return;
+    }
+    
     [self.inputToolbar toggleSendButtonEnabled];
 }
 
 - (void)textViewDidEndEditing:(UITextView *)textView
 {
+    if (textView != self.inputToolbar.contentView.textView) {
+        return;
+    }
+    
     [textView resignFirstResponder];
 }
 
@@ -634,21 +652,29 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
     switch (gestureRecognizer.state) {
         case UIGestureRecognizerStateBegan:
         {
+            if (self.snapshotView) {
+                [self.snapshotView removeFromSuperview];
+            }
+            
             [self.keyboardController endListeningForKeyboard];
             [self.inputToolbar.contentView.textView resignFirstResponder];
             [UIView animateWithDuration:0.0
                              animations:^{
                                  [self jsq_setToolbarBottomLayoutGuideConstant:0.0f];
                              }];
+            
+            UIView *snapshot = [self.view snapshotViewAfterScreenUpdates:YES];
+            [self.view addSubview:snapshot];
+            self.snapshotView = snapshot;
         }
             break;
         case UIGestureRecognizerStateChanged:
-            //  TODO: handle this animation better
             break;
         case UIGestureRecognizerStateCancelled:
         case UIGestureRecognizerStateEnded:
         case UIGestureRecognizerStateFailed:
             [self.keyboardController beginListeningForKeyboard];
+            [self.snapshotView removeFromSuperview];
             break;
         default:
             break;
@@ -743,22 +769,32 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 
 - (void)jsq_addObservers
 {
-    [self jsq_removeObservers];
+    if (self.jsq_isObserving) {
+        return;
+    }
     
     [self.inputToolbar.contentView.textView addObserver:self
                                              forKeyPath:NSStringFromSelector(@selector(contentSize))
                                                 options:NSKeyValueObservingOptionOld | NSKeyValueObservingOptionNew
                                                 context:kJSQMessagesKeyValueObservingContext];
+    
+    self.jsq_isObserving = YES;
 }
 
 - (void)jsq_removeObservers
 {
+    if (!_jsq_isObserving) {
+        return;
+    }
+    
     @try {
-        [self.inputToolbar.contentView.textView removeObserver:self
-                                                    forKeyPath:NSStringFromSelector(@selector(contentSize))
-                                                       context:kJSQMessagesKeyValueObservingContext];
+        [_inputToolbar.contentView.textView removeObserver:self
+                                                forKeyPath:NSStringFromSelector(@selector(contentSize))
+                                                   context:kJSQMessagesKeyValueObservingContext];
     }
     @catch (NSException * __unused exception) { }
+    
+    _jsq_isObserving = NO;
 }
 
 - (void)jsq_registerForNotifications:(BOOL)registerForNotifications
