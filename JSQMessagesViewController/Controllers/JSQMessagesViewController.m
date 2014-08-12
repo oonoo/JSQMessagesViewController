@@ -312,13 +312,13 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 
 }
 
-- (void)reloadShit
+- (void)reloadShitAnimated:(BOOL)animated scrollToBottom:(BOOL)scrollToBottom
 {
     [self.collectionView.collectionViewLayout invalidateLayoutWithContext:[JSQMessagesCollectionViewFlowLayoutInvalidationContext context]];
     [self.collectionView reloadData];
     
-    if (self.automaticallyScrollsToMostRecentMessage) {
-        [self scrollToBottomAnimated:YES];
+    if (scrollToBottom) {
+        [self scrollToBottomAnimated:animated];
     }
 }
 

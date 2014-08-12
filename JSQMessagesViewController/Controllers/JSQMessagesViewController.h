@@ -195,7 +195,7 @@
  */
 - (void)finishReceivingMessage;
 
-- (void)reloadShit;
+- (void)reloadShitAnimated:(BOOL)animated scrollToBottom:(BOOL)scrollToBottom;
 
 /**
  *  Scrolls the collection view such that the bottom most cell is completely visible, above the `inputToolbar`.
