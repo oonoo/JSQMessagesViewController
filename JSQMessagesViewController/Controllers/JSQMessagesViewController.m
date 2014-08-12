@@ -65,8 +65,6 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 
 - (void)jsq_configureMessagesViewController;
 
-- (void)jsq_finishSendingOrReceivingMessage;
-
 - (NSString *)jsq_currentlyComposedMessageText;
 
 - (void)jsq_updateKeyboardTriggerPoint;
@@ -138,6 +136,8 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
     
     self.showLoadEarlierMessagesHeader = NO;
     
+    self.topContentAdditionalInset = 0.0f;
+    
     [self jsq_updateCollectionViewInsets];
     
     self.keyboardController = [[JSQMessagesKeyboardController alloc] initWithTextView:self.inputToolbar.contentView.textView
@@ -176,8 +176,8 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
     }
     
     _showTypingIndicator = showTypingIndicator;
-    
     [self.collectionView.collectionViewLayout invalidateLayoutWithContext:[JSQMessagesCollectionViewFlowLayoutInvalidationContext context]];
+    [self.collectionView.collectionViewLayout invalidateLayout];
 }
 
 - (void)setShowLoadEarlierMessagesHeader:(BOOL)showLoadEarlierMessagesHeader
@@ -187,8 +187,9 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
     }
     
     _showLoadEarlierMessagesHeader = showLoadEarlierMessagesHeader;
-    
     [self.collectionView.collectionViewLayout invalidateLayoutWithContext:[JSQMessagesCollectionViewFlowLayoutInvalidationContext context]];
+    [self.collectionView.collectionViewLayout invalidateLayout];
+    [self.collectionView reloadData];
 }
 
 #pragma mark - View lifecycle
@@ -290,7 +291,12 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
     
     [[NSNotificationCenter defaultCenter] postNotificationName:UITextViewTextDidChangeNotification object:textView];
     
-    [self jsq_finishSendingOrReceivingMessage];
+    [self.collectionView.collectionViewLayout invalidateLayoutWithContext:[JSQMessagesCollectionViewFlowLayoutInvalidationContext context]];
+    [self.collectionView reloadData];
+    
+    if (self.automaticallyScrollsToMostRecentMessage) {
+        [self scrollToBottomAnimated:YES];
+    }
 }
 
 - (void)finishReceivingMessage
@@ -302,6 +308,7 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 {
     self.showTypingIndicator = NO;
     
+//    [self.collectionView.collectionViewLayout invalidateLayoutWithContext:[JSQMessagesCollectionViewFlowLayoutInvalidationContext context]];
 //    [self.collectionView reloadData];
     
 //    if (self.automaticallyScrollsToMostRecentMessage) {
@@ -505,6 +512,12 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
  didTapAvatarImageView:(UIImageView *)avatarImageView
            atIndexPath:(NSIndexPath *)indexPath { }
 
+- (void)collectionView:(JSQMessagesCollectionView *)collectionView didTapMessageBubbleAtIndexPath:(NSIndexPath *)indexPath { }
+
+- (void)collectionView:(JSQMessagesCollectionView *)collectionView
+ didTapCellAtIndexPath:(NSIndexPath *)indexPath
+         touchLocation:(CGPoint)touchLocation { }
+
 #pragma mark - Messages collection view cell delegate
 
 - (void)messagesCollectionViewCellDidTapAvatar:(JSQMessagesCollectionViewCell *)cell
@@ -512,6 +525,19 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
     [self.collectionView.delegate collectionView:self.collectionView
                            didTapAvatarImageView:cell.avatarImageView
                                      atIndexPath:[self.collectionView indexPathForCell:cell]];
+}
+
+- (void)messagesCollectionViewCellDidTapMessageBubble:(JSQMessagesCollectionViewCell *)cell
+{
+    [self.collectionView.delegate collectionView:self.collectionView
+                  didTapMessageBubbleAtIndexPath:[self.collectionView indexPathForCell:cell]];
+}
+
+- (void)messagesCollectionViewCellDidTapCell:(JSQMessagesCollectionViewCell *)cell atPosition:(CGPoint)position
+{
+    [self.collectionView.delegate collectionView:self.collectionView
+                           didTapCellAtIndexPath:[self.collectionView indexPathForCell:cell]
+                                   touchLocation:position];
 }
 
 #pragma mark - Input toolbar delegate
@@ -754,7 +780,7 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 
 - (void)jsq_updateCollectionViewInsets
 {
-    [self jsq_setCollectionViewInsetsTopValue:self.topLayoutGuide.length
+    [self jsq_setCollectionViewInsetsTopValue:self.topLayoutGuide.length + self.topContentAdditionalInset
                                   bottomValue:CGRectGetHeight(self.collectionView.frame) - CGRectGetMinY(self.inputToolbar.frame)];
 }
 
