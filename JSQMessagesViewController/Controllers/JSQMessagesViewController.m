@@ -308,8 +308,8 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 {
     self.showTypingIndicator = NO;
     
-//    [self.collectionView.collectionViewLayout invalidateLayoutWithContext:[JSQMessagesCollectionViewFlowLayoutInvalidationContext context]];
-//    [self.collectionView reloadData];
+    [self.collectionView.collectionViewLayout invalidateLayoutWithContext:[JSQMessagesCollectionViewFlowLayoutInvalidationContext context]];
+    [self.collectionView reloadData];
     
 //    if (self.automaticallyScrollsToMostRecentMessage) {
 //        [self scrollToBottomAnimated:YES];
