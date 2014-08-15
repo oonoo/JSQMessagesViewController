@@ -316,6 +316,7 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
 {
     [self.collectionView.collectionViewLayout invalidateLayoutWithContext:[JSQMessagesCollectionViewFlowLayoutInvalidationContext context]];
     [self.collectionView reloadData];
+    [self.collectionView.collectionViewLayout invalidateLayout];
     
     if (scrollToBottom) {
         [self scrollToBottomAnimated:animated];
@@ -331,9 +332,10 @@ static void * kJSQMessagesKeyValueObservingContext = &kJSQMessagesKeyValueObserv
     NSInteger items = [self.collectionView numberOfItemsInSection:0];
     
     if (items > 0) {
-        [self.collectionView scrollToItemAtIndexPath:[NSIndexPath indexPathForItem:items - 1 inSection:0]
-                                    atScrollPosition:UICollectionViewScrollPositionTop
-                                            animated:animated];
+        CGPoint bottomOffset = CGPointMake(0, self.collectionView.collectionViewLayout.collectionViewContentSize.height + self.collectionView.contentInset.bottom - self.collectionView.bounds.size.height);
+        if (bottomOffset.y > - self.collectionView.contentInset.top) {
+            [self.collectionView setContentOffset:bottomOffset animated:animated];
+        }
     }
 }
 
